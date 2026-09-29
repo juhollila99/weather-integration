@@ -1,0 +1,167 @@
+- rest:
+    id: rest3fd1
+    consumes: application/json
+    produces: application/json
+    post:
+      - id: post3e24
+        path: weather
+        to: direct:weather
+        consumes: application/json
+        produces: application/json
+- route:
+    id: routecf3b
+    nodePrefixId: routedc3
+    from:
+      id: from1b02
+      uri: direct
+      parameters:
+        name: weather
+      steps:
+        - unmarshal:
+            id: unmarshale687
+            json:
+              id: json6997
+              library: Jackson
+        - choice:
+            id: choice74cb
+            when:
+              - id: whend064
+                expression:
+                  simple:
+                    id: simple8519
+                    expression: ${body[name]} == null || ${body[name]} == '' || ${body[city]} == null || ${body[city]} == ''
+                steps:
+                  - log:
+                      id: log5342
+                      message: "Invalid request: name or city is missing"
+                  - setBody:
+                      id: setBodyf28d
+                      expression:
+                        simple:
+                          id: simple6fe2
+                          expression: "Invalid request: name and city are required"
+            otherwise:
+              id: otherwisec75a
+              steps:
+                - setVariable:
+                    id: setVariable0851
+                    name: route:name
+                    expression:
+                      simple:
+                        id: simple785f
+                        expression: ${body[name]}
+                - setVariable:
+                    id: setVariable-1749
+                    name: route:city
+                    expression:
+                      simple:
+                        id: simple785f
+                        expression: ${body[city]}
+                - setVariable:
+                    id: setVariable71e5
+                    name: route:requestId
+                    expression:
+                      simple:
+                        id: simple109c
+                        expression: ${uuid}
+                - setVariable:
+                    id: setVariable-5676
+                    name: route:timestamp
+                    expression:
+                      simple:
+                        id: simple109c
+                        expression: ${date:now:yyyy-MM-dd'T'HH:mm:ssXXX}
+                - setHeader:
+                    id: setHeader9a06
+                    name: requestId
+                    expression:
+                      simple:
+                        id: simpleb4e5
+                        expression: ${uuid}
+                - setHeader:
+                    id: setHeaderf702
+                    name: timestamp
+                    expression:
+                      simple:
+                        id: simple4f4b
+                        expression: ${date:now:yyyy-MM-dd'T'HH:mm:ssXXX}
+                - removeHeader:
+                    id: removeHeader291e
+                    name: CamelHttpPath
+                - removeHeader:
+                    id: removeHeader-1af7
+                    name: CamelHttpUrl
+                - removeHeader:
+                    id: removeHeader-376a
+                    name: CamelHttpUri
+                - setHeader:
+                    id: setHeader-61d0
+                    name: CamelHttpQuery
+                    expression:
+                      simple:
+                        id: simple4f4b
+                        expression: name=${body[city]}&count=1&format=json&language=en
+                - log:
+                    id: log0002
+                    message: "Request received: requestId = ${header[requestId]}, timestamp = ${header[timestamp]}"
+                - to:
+                    id: to796a
+                    uri: http
+                    parameters:
+                      httpUri: https://geocoding-api.open-meteo.com/v1/search
+                      httpMethod: GET
+                      bridgeEndpoint: true
+                      throwExceptionOnFailure: true
+                      logHttpActivity: false
+                      skipControlHeaders: true
+                - log:
+                    id: log6206
+                    message: "Geocoding response: ${body}"
+                - unmarshal:
+                    id: unmarshalcc11
+                    json:
+                      id: json4ddc
+                      library: Jackson
+                - log:
+                    id: log5fbe
+                    message: "Body before query: ${body}"
+                - setHeader:
+                    id: setHeader-8999
+                    name: CamelHttpQuery
+                    expression:
+                      simple:
+                        id: simple4f4b
+                        expression: latitude=${body[results][0][latitude]}&longitude=${body[results][0][longitude]}&current=temperature_2m
+                - log:
+                    id: loga61f
+                    message: "camel query: ${header.CamelHttpQuery}"
+                - to:
+                    id: to-ecb2
+                    uri: http
+                    parameters:
+                      httpUri: https://api.open-meteo.com/v1/forecast
+                      httpMethod: GET
+                      bridgeEndpoint: true
+                      throwExceptionOnFailure: true
+                      logHttpActivity: false
+                      skipControlHeaders: true
+                - log:
+                    id: log1639
+                    message: "Weather: ${body}"
+                - unmarshal:
+                    id: unmarshald647
+                    json:
+                      id: json6363
+                      library: Jackson
+                - setBody:
+                    id: setBody9912
+                    expression:
+                      simple:
+                        id: simpleb4ff
+                        expression: |-
+                          {
+                            "name": "${variable.route:name}",
+                            "city": "${variable.route:city}",
+                            "currentTemperature": ${body[current][temperature_2m]},
+                            "time": "${variable.route:timestamp}"
+                          }
