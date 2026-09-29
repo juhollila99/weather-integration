@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weather-integration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: weather-integration
+  template:
+    metadata:
+      labels:
+        app: weather-integration
+    spec:
+      containers:
+        - name: weather-integration
+          image: weather-integration:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
